@@ -18,6 +18,7 @@ const PHOTOS_COLLECTION = 'photos';
 
 interface FirestorePhoto {
   userId: string;
+  mediaType: 'image' | 'video';
   imageUrl: string;
   audio?: AudioAttachment;
   description?: string;
@@ -25,19 +26,21 @@ interface FirestorePhoto {
 }
 
 /**
- * Save a photo to Firestore
+ * Save a photo or video to Firestore
  */
 export async function savePhoto(
   userId: string,
   imageUrl: string,
   audio?: AudioAttachment,
-  description?: string
+  description?: string,
+  mediaType: 'image' | 'video' = 'image'
 ): Promise<string> {
   // Build the photo data object, only including fields that have values
   // Firestore doesn't accept undefined values
   const photoData: any = {
     userId,
     imageUrl,
+    mediaType,
     createdAt: Timestamp.now(),
   };
 
@@ -72,6 +75,7 @@ export async function getUserPhotos(userId: string): Promise<Photo[]> {
     photos.push({
       id: doc.id,
       userId: data.userId,
+      mediaType: data.mediaType || 'image', // Default to 'image' for backwards compatibility
       imageUrl: data.imageUrl,
       audio: data.audio,
       description: data.description,

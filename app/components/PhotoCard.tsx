@@ -83,7 +83,8 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
   const handleDelete = async () => {
     if (!onDelete || isDeleting) return;
     
-    if (!confirm('Are you sure you want to delete this photo? This cannot be undone.')) {
+    const mediaTypeName = photo.mediaType === 'video' ? 'video' : 'photo';
+    if (!confirm(`Are you sure you want to delete this ${mediaTypeName}? This cannot be undone.`)) {
       return;
     }
 
@@ -92,7 +93,7 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
       // Delete from Firestore
       await deletePhoto(photo.id);
       
-      // Delete image from Storage
+      // Delete media from Storage (image or video)
       await deleteFile(photo.imageUrl);
       
       // Delete audio from Storage if it exists and isn't an external preview link
@@ -103,26 +104,44 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
       // Notify parent
       await onDelete(photo.id);
     } catch (error) {
-      console.error('Error deleting photo:', error);
-      alert('Failed to delete photo. Please try again.');
+      console.error(`Error deleting ${mediaTypeName}:`, error);
+      alert(`Failed to delete ${mediaTypeName}. Please try again.`);
       setIsDeleting(false);
     }
   };
 
   return (
     <div className="group relative bg-gradient-to-br from-[#2a0a0a] to-[#1a0505] rounded-lg overflow-hidden border border-red-900/30 dark-room-glow hover:border-red-700/50 transition-all duration-300">
-      {/* Image */}
+      {/* Media (Image or Video) */}
       <div className="relative aspect-square overflow-hidden">
-        <Image
-          src={photo.imageUrl}
-          alt={photo.description || 'Photo'}
-          fill
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
+        {photo.mediaType === 'video' ? (
+          <video
+            src={photo.imageUrl}
+            controls
+            className="w-full h-full object-cover"
+            playsInline
+          />
+        ) : (
+          <Image
+            src={photo.imageUrl}
+            alt={photo.description || 'Photo'}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        )}
         
-        {/* Overlay gradient for dark room effect */}
-        <div className="absolute inset-0 bg-gradient-to-t from-red-950/80 via-transparent to-transparent opacity-60" />
+        {/* Overlay gradient for dark room effect (only for images) */}
+        {photo.mediaType !== 'video' && (
+          <div className="absolute inset-0 bg-gradient-to-t from-red-950/80 via-transparent to-transparent opacity-60" />
+        )}
+        
+        {/* Media type indicator badge */}
+        {photo.mediaType === 'video' && (
+          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full text-xs text-white flex items-center gap-1.5 border border-white/20">
+            🎥 Video
+          </div>
+        )}
         
         {/* Audio indicator badge */}
         {photo.audio && (
@@ -137,8 +156,8 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="absolute top-3 left-3 bg-red-900/80 backdrop-blur-sm p-2 rounded-full text-red-100 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Delete photo"
+            className={`absolute ${photo.mediaType === 'video' ? 'bottom-3 right-3' : 'top-3 left-3'} bg-red-900/80 backdrop-blur-sm p-2 rounded-full text-red-100 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed z-10`}
+            aria-label={`Delete ${photo.mediaType}`}
           >
             {isDeleting ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

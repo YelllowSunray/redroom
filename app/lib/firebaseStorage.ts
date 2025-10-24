@@ -20,6 +20,29 @@ export async function uploadImage(file: File, userId: string): Promise<string> {
 }
 
 /**
+ * Upload a video file to Firebase Storage
+ * @param file - The video file or blob to upload
+ * @param userId - The user ID
+ * @param fileName - Optional custom file name
+ * @returns The download URL of the uploaded video
+ */
+export async function uploadVideo(
+  file: File | Blob,
+  userId: string,
+  fileName?: string
+): Promise<string> {
+  const timestamp = Date.now();
+  const name = fileName || `video_${timestamp}.webm`;
+  const storagePath = `videos/${userId}/${timestamp}_${name}`;
+  const storageRef = ref(storage, storagePath);
+
+  await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(storageRef);
+  
+  return downloadURL;
+}
+
+/**
  * Upload an audio file to Firebase Storage
  * @param blob - The audio blob to upload
  * @param userId - The user ID

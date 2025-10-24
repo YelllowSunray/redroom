@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        /* Black scrollbars */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #333 #000;
+        }
+        button {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #ff6666; }
+        #log {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-line { margin: 5px 0; }
+        .error { color: #ff4444; }
+        .success { color: #44ff44; }
+        .warning { color: #ffaa44; }
+        #levelBar {
+            width: 100%;
+            height: 30px;
+            background: #333;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        #levelFill {
+            height: 100%;
+            background: linear-gradient(to right, #44ff44, #ffaa44, #ff4444);
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Simple Microphone Test</h1>
+    <p>This is a basic test to check if your browser can access your microphone.</p>
+    
+    <button id="testBtn">Test Microphone</button>
+    <button id="stopBtn" disabled>Stop</button>
+    
+    <div id="levelBar">
+        <div id="levelFill"></div>
+    </div>
+    
+    <div id="log"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const testBtn = document.getElementById('testBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const levelFill = document.getElementById('levelFill');
+        
+        let stream = null;
+        let audioContext = null;
+        let analyser = null;
+        let animationId = null;
+
+        function log(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(line);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateLevel() {
+            if (!analyser) return;
+            
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+            
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            const level = Math.min(100, (average / 128) * 100);
+            
+            levelFill.style.width = level + '%';
+            
+            if (level > 5) {
+                log(`✅ Audio detected! Level: ${level.toFixed(1)}%`, 'success');
+            }
+            
+            animationId = requestAnimationFrame(updateLevel);
+        }
+
+        async function testMicrophone() {
+            try {
+                log('🔍 Checking browser support...', 'info');
+                
+                if (!navigator.mediaDevices) {
+                    throw new Error('MediaDevices API not supported');
+                }
+                
+                log('✅ Browser supports microphone access', 'success');
+                log('📋 Enumerating devices...', 'info');
+                
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                
+                log(`🎙️ Found ${audioInputs.length} microphone(s):`, audioInputs.length > 0 ? 'success' : 'error');
+                audioInputs.forEach((device, i) => {
+                    log(`  ${i + 1}. ${device.label || 'Unnamed microphone'}`, 'info');
+                });
+                
+                if (audioInputs.length === 0) {
+                    throw new Error('No microphones found!');
+                }
+                
+                log('🎤 Requesting microphone access...', 'info');
+                
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                log('✅ Microphone access GRANTED!', 'success');
+                log('📊 Audio stream info:', 'info');
+                
+                const tracks = stream.getAudioTracks();
+                tracks.forEach((track, i) => {
+                    const settings = track.getSettings();
+                    log(`  Track ${i + 1}: ${track.label}`, 'info');
+                    log(`    Enabled: ${track.enabled}`, 'info');
+                    log(`    Sample rate: ${settings.sampleRate}Hz`, 'info');
+                });
+                
+                // Set up audio level monitoring
+                audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                
+                log('🎵 Monitoring audio levels... SPEAK NOW!', 'warning');
+                updateLevel();
+                
+                testBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+            } catch (error) {
+                log(`❌ ERROR: ${error.name}`, 'error');
+                log(`   Message: ${error.message}`, 'error');
+                
+                if (error.name === 'NotAllowedError') {
+                    log('⚠️ You blocked microphone access. Click the lock icon in the address bar and allow it!', 'warning');
+                } else if (error.name === 'NotFoundError') {
+                    log('⚠️ No microphone found. Check your device connections.', 'warning');
+                }
+            }
+        }
+
+        function stopTest() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                log('⏹️ Stopped microphone', 'info');
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            stream = null;
+            audioContext = null;
+            analyser = null;
+            
+            levelFill.style.width = '0%';
+            testBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        testBtn.addEventListener('click', testMicrophone);
+        stopBtn.addEventListener('click', stopTest);
+        
+        log('👋 Ready to test! Click the button above.', 'info');
+    </script>
+</body>
+</html>
+
+
+
+

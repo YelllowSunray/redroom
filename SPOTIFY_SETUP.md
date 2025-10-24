@@ -1,6 +1,6 @@
 # 🎵 Spotify Integration Setup Guide
 
-This guide will help you set up Spotify integration for your Dark Room app in simple, beginner-friendly steps!
+This guide will help you set up Spotify integration for your Nude Dark Room app in simple, beginner-friendly steps!
 
 ## What Does Spotify Integration Do?
 
@@ -30,11 +30,26 @@ Think of this as telling Spotify "Hey, I'm building an app that wants to search 
 
 1. Click the **"Create app"** button
 2. Fill in the form:
-   - **App name**: "Dark Room" (or whatever you want)
+   - **App name**: "Nude Dark Room" (or whatever you want)
    - **App description**: "Photo sharing app with audio"
-   - **Redirect URI**: `http://localhost:3000` (just for now)
+   - **Redirect URI**: `http://localhost:3000/callback`
+   - **Website**: Leave blank (optional)
    - Check the box agreeing to terms
 3. Click **"Save"**
+
+#### ⚠️ About the "Not Secure" Warning
+
+You'll see a warning like: _"This redirect URI is not secure"_
+
+**This is completely normal and safe for local development!** Here's why:
+- `http://localhost` is your own computer - it's perfectly safe
+- Spotify shows this warning because production apps should use `https://`
+- For learning and testing on your computer, you can **ignore this warning**
+- The app will work perfectly fine!
+
+**When would you need HTTPS?**
+- Only if you deploy this app online for others to use
+- For now, while testing on your computer, `http://localhost` is fine!
 
 ### Step 3: Get Your Credentials
 
@@ -47,7 +62,7 @@ Credentials are like passwords that let your app talk to Spotify.
 
 ### Step 4: Add Credentials to Your Project
 
-1. In your project folder (where you have the Dark Room app), look for a file called `env.example`
+1. In your project folder (where you have the Nude Dark Room app), look for a file called `env.example`
 2. Make a copy of it and name it `.env.local`:
    - On Mac/Linux: Open terminal and run `cp env.example .env.local`
    - On Windows: Copy the file and rename it to `.env.local`
@@ -73,28 +88,55 @@ SPOTIFY_CLIENT_SECRET=z9y8x7w6v5u4t3s2r1q0
 
 ## Troubleshooting
 
-### "Spotify API not configured" error
+### "This redirect URI is not secure" warning in Spotify Dashboard
+**This is normal!** You can ignore it for local development.
+- The warning appears because you're using `http://` instead of `https://`
+- For development on your own computer, this is completely safe
+- Click "Save" anyway - your app will work fine!
+- You only need `https://` if deploying to production
+
+### "Spotify API not configured" error in your app
 - Make sure your `.env.local` file exists in the root folder (next to `package.json`)
-- Check that you spelled the variable names exactly right
+- Check that you spelled the variable names exactly right:
+  - `NEXT_PUBLIC_SPOTIFY_CLIENT_ID`
+  - `SPOTIFY_CLIENT_SECRET`
 - Make sure there are no spaces around the `=` sign
-- Try restarting your dev server
+- Make sure you saved the file!
+- Try restarting your dev server (stop with Ctrl+C, then `npm run dev`)
 
 ### "Failed to search Spotify tracks" error
 - Check your internet connection
-- Make sure your Client ID and Secret are correct (no extra spaces)
+- Make sure your Client ID and Secret are correct (copy them again from Spotify Dashboard)
+- Make sure there are no extra spaces or quotes when pasting
 - Try creating a new app in Spotify Developer Dashboard
 
-### Search returns no results
+### Some tracks show "❌ No preview"
+- **This is normal!** Not all songs on Spotify have 30-second preview URLs
+- These tracks are disabled and cannot be selected
+- Try searching for popular mainstream songs (they usually have previews)
+- Examples that typically have previews: "Bohemian Rhapsody", "Blinding Lights", "Shape of You", "Levitating"
+- Classical music, indie artists, and some regional music may not have previews
+- The app prioritizes showing tracks with previews, but will show all results if none have previews
+
+### Yellow warning: "None of these tracks have previews available"
+- This means your search returned only tracks without preview URLs
+- Try searching for a more popular or mainstream song
+- Artists like Taylor Swift, The Weeknd, Dua Lipa, Ed Sheeran usually have previews
+- Regional or less popular tracks may not have previews available
+
+### Search returns no results at all
 - Make sure you're typing at least 2 characters
-- Try a popular song like "Bohemian Rhapsody"
-- Some songs don't have previews available - try a different one
+- Wait a second after typing - the search has a small delay
+- Check your internet connection
 
 ## What Spotify Gives You (Free Tier)
 
 - Search for any song in Spotify's catalog
-- Get 30-second previews of songs
+- Get 30-second previews of songs (when available)
 - Show album art and artist info
 - No login required for your users!
+
+**Important Note**: Not all songs on Spotify have preview URLs available. The app automatically filters search results to only show songs with previews. Mainstream popular songs typically have previews, while some classical, indie, or regional music may not.
 
 ## Security Note
 

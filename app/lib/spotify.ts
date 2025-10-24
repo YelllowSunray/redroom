@@ -66,7 +66,8 @@ export async function searchSpotifyTracks(query: string): Promise<SpotifyTrack[]
   const params = new URLSearchParams({
     q: query,
     type: 'track',
-    limit: '10',
+    limit: '50', // Request many tracks since we'll filter out ones without previews
+    market: 'US', // Specify US market for better preview availability
   });
 
   const response = await fetch(`${SPOTIFY_SEARCH_ENDPOINT}?${params}`, {
@@ -81,7 +82,8 @@ export async function searchSpotifyTracks(query: string): Promise<SpotifyTrack[]
 
   const data = await response.json();
 
-  return data.tracks.items.map((track: any) => ({
+  // Map all tracks
+  const allTracks = data.tracks.items.map((track: any) => ({
     id: track.id,
     name: track.name,
     artists: track.artists.map((a: any) => a.name).join(', '),
@@ -90,5 +92,12 @@ export async function searchSpotifyTracks(query: string): Promise<SpotifyTrack[]
     previewUrl: track.preview_url,
     duration: track.duration_ms,
   }));
+
+  // Filter to only show tracks with preview URLs
+  const tracksWithPreviews = allTracks.filter((track: SpotifyTrack) => track.previewUrl !== null);
+  
+  // Return first 10 tracks with previews, or if none found, return first 10 tracks total
+  const results = tracksWithPreviews.length > 0 ? tracksWithPreviews : allTracks;
+  return results.slice(0, 10);
 }
 

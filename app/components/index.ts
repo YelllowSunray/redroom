@@ -4,4 +4,7 @@ export { default as UploadModal } from './UploadModal';
 export { default as AudioRecorder } from './AudioRecorder';
 export { default as Camera } from './Camera';
 export { default as SpotifySearch } from './SpotifySearch';
+export { default as AuthModal } from './AuthModal';
+export { default as ProfileModal } from './ProfileModal';
+export { default as SingAlongRecorder } from './SingAlongRecorder';
 

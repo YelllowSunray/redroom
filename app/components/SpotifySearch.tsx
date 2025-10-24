@@ -61,15 +61,15 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
 
   const handleSelectTrack = (track: SpotifyTrack) => {
     if (!track.previewUrl) {
-      setError('This track does not have a preview available');
+      setError('This track does not have a preview available. Please select a different track.');
       return;
     }
-
+    setError(null);
     setSelectedTrack(track);
   };
 
   const handleConfirm = () => {
-    if (selectedTrack && selectedTrack.previewUrl) {
+    if (selectedTrack?.previewUrl) {
       onSelect({
         name: selectedTrack.name,
         artists: selectedTrack.artists,
@@ -132,7 +132,17 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
 
         {!isSearching && searchQuery.length >= 2 && tracks.length === 0 && !error && (
           <div className="text-center py-8 text-red-400/70">
-            No results found
+            <div className="text-lg mb-2">🎵</div>
+            <div className="font-medium mb-1">No results found</div>
+            <div className="text-sm opacity-70">
+              Try a different search term
+            </div>
+          </div>
+        )}
+
+        {!isSearching && tracks.length > 0 && !tracks.some(t => t.previewUrl) && (
+          <div className="mb-3 p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg text-yellow-200/90 text-sm">
+            ⚠️ None of these tracks have previews available. Try searching for a more popular song.
           </div>
         )}
 
@@ -146,14 +156,14 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
                 ? 'bg-red-600 border-red-500 text-white'
                 : track.previewUrl
                 ? 'bg-red-950/30 border border-red-900/50 text-red-200 hover:bg-red-950/50 hover:border-red-700/50'
-                : 'bg-red-950/20 border border-red-900/30 text-red-500/50 cursor-not-allowed'
+                : 'bg-red-950/20 border border-red-900/30 text-red-400/40 cursor-not-allowed'
             }`}
           >
             {track.albumArt && (
               <img
                 src={track.albumArt}
                 alt={track.album}
-                className="w-12 h-12 rounded object-cover flex-shrink-0"
+                className={`w-12 h-12 rounded object-cover flex-shrink-0 ${!track.previewUrl ? 'opacity-40' : ''}`}
               />
             )}
             <div className="flex-1 min-w-0">
@@ -161,7 +171,7 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
               <div className="text-sm opacity-70 truncate">{track.artists}</div>
             </div>
             <div className="text-xs opacity-70 flex-shrink-0">
-              {track.previewUrl ? formatDuration(track.duration) : 'No preview'}
+              {track.previewUrl ? formatDuration(track.duration) : '❌ No preview'}
             </div>
           </button>
         ))}

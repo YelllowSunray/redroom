@@ -3,17 +3,33 @@
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Photo } from '../types';
+import { deletePhoto, getUserProfile } from '../lib/firestore';
+import { deleteFile } from '../lib/firebaseStorage';
 
 interface PhotoCardProps {
   photo: Photo;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => Promise<void>;
 }
 
 export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ displayName: string; photoURL: string; age: string } | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const originalTrackRef = useRef<HTMLAudioElement>(null);
+
+  // Fetch user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (photo.userId) {
+        const profile = await getUserProfile(photo.userId);
+        setUserProfile(profile);
+      }
+    };
+    loadProfile();
+  }, [photo.userId]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -40,8 +56,18 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
 
     if (isPlaying) {
       audio.pause();
+      // For singalong, also pause the original track
+      if (photo.audio?.type === 'singalong' && originalTrackRef.current) {
+        originalTrackRef.current.pause();
+      }
     } else {
       audio.play();
+      // For singalong, also play the original track
+      if (photo.audio?.type === 'singalong' && originalTrackRef.current) {
+        // Sync both to the same time
+        originalTrackRef.current.currentTime = audio.currentTime;
+        originalTrackRef.current.play();
+      }
     }
     setIsPlaying(!isPlaying);
   };
@@ -53,6 +79,35 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
   };
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const handleDelete = async () => {
+    if (!onDelete || isDeleting) return;
+    
+    if (!confirm('Are you sure you want to delete this photo? This cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Delete from Firestore
+      await deletePhoto(photo.id);
+      
+      // Delete image from Storage
+      await deleteFile(photo.imageUrl);
+      
+      // Delete audio from Storage if it exists and isn't a Spotify link
+      if (photo.audio && photo.audio.type !== 'song' && !photo.audio.url.includes('spotify')) {
+        await deleteFile(photo.audio.url);
+      }
+      
+      // Notify parent
+      await onDelete(photo.id);
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      alert('Failed to delete photo. Please try again.');
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="group relative bg-gradient-to-br from-[#2a0a0a] to-[#1a0505] rounded-lg overflow-hidden border border-red-900/30 dark-room-glow hover:border-red-700/50 transition-all duration-300">
@@ -72,7 +127,7 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
         {/* Audio indicator badge */}
         {photo.audio && (
           <div className="absolute top-3 right-3 bg-red-900/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-red-100 flex items-center gap-1.5 border border-red-700/50">
-            {photo.audio.type === 'song' ? '♪' : '🎙️'}
+            {photo.audio.type === 'song' ? '♪' : photo.audio.type === 'singalong' ? '🎤' : '🎙️'}
             <span>{photo.audio.name}</span>
           </div>
         )}
@@ -80,14 +135,40 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
         {/* Delete button */}
         {onDelete && (
           <button
-            onClick={() => onDelete(photo.id)}
-            className="absolute top-3 left-3 bg-red-900/80 backdrop-blur-sm p-2 rounded-full text-red-100 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-800"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="absolute top-3 left-3 bg-red-900/80 backdrop-blur-sm p-2 rounded-full text-red-100 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Delete photo"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            {isDeleting ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
           </button>
+        )}
+
+        {/* Profile selfie overlay - bottom left */}
+        {userProfile?.photoURL && (
+          <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full pr-3 border-2 border-red-900/50">
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-red-600/70">
+              <Image
+                src={userProfile.photoURL}
+                alt={userProfile.displayName}
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="text-xs">
+              <div className="text-red-100 font-medium">{userProfile.displayName}</div>
+              {userProfile.age && (
+                <div className="text-red-300/70">{userProfile.age} years</div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -95,6 +176,10 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
       {photo.audio && (
         <div className="p-4 bg-[#1a0505]/80 backdrop-blur-sm border-t border-red-900/30">
           <audio ref={audioRef} src={photo.audio.url} />
+          {/* For singalong, also load the original track */}
+          {photo.audio.type === 'singalong' && photo.audio.originalTrackUrl && (
+            <audio ref={originalTrackRef} src={photo.audio.originalTrackUrl} />
+          )}
           
           <div className="flex items-center gap-3">
             {/* Play/Pause button */}

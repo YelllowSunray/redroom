@@ -2,126 +2,76 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-interface AudioRecorderProps {
-  onRecordingComplete: (audioBlob: Blob, duration: number) => void;
+interface SingAlongRecorderProps {
+  trackName: string;
+  trackArtists: string;
+  trackPreviewUrl: string;
+  onRecordingComplete: (audioBlob: Blob, duration: number, originalTrackUrl: string) => void;
   onCancel: () => void;
 }
 
-export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderProps) {
+export default function SingAlongRecorder({ 
+  trackName, 
+  trackArtists, 
+  trackPreviewUrl, 
+  onRecordingComplete, 
+  onCancel 
+}: SingAlongRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [hasRecording, setHasRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const trackAudioRef = useRef<HTMLAudioElement>(null);
+  const recordingAudioRef = useRef<HTMLAudioElement>(null);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (audioContextRef.current) audioContextRef.current.close();
+      if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     };
-  }, [audioUrl]);
-
-  const updateAudioLevel = () => {
-    if (!analyserRef.current) return;
-    
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteFrequencyData(dataArray);
-    
-    // Calculate average volume
-    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-    const normalizedLevel = Math.min(100, (average / 128) * 100);
-    setAudioLevel(normalizedLevel);
-    
-    if (isRecording) {
-      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
-    }
-  };
+  }, [recordingUrl]);
 
   const startRecording = async () => {
     try {
-      console.log('🎤 Requesting microphone access...');
-      
-      // First, check if mediaDevices is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('MediaDevices API not supported in this browser');
-      }
-      
-      // Check available devices
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter(device => device.kind === 'audioinput');
-      console.log('🎙️ Available microphones:', audioInputs.length);
-      audioInputs.forEach((device, i) => {
-        console.log(`  ${i + 1}. ${device.label || 'Unnamed microphone'} (${device.deviceId})`);
-      });
-      
-      if (audioInputs.length === 0) {
-        throw new Error('No microphone found on your system');
-      }
-      
-      // Try with simpler settings first
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true  // Simplified - just request any audio input
-      });
-      
-      console.log('✅ Microphone access granted!');
-      console.log('📊 Stream tracks:', stream.getAudioTracks());
-      console.log('📊 Track settings:', stream.getAudioTracks()[0]?.getSettings());
-      
-      // Set up audio level visualization
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
-      
+      // Get microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (e) => {
-        console.log('📦 Data available event fired! Size:', e.data.size, 'bytes');
         if (e.data.size > 0) {
           chunksRef.current.push(e.data);
-          console.log('✅ Audio chunk saved! Total chunks:', chunksRef.current.length);
-        } else {
-          console.warn('⚠️ Data chunk was empty (0 bytes)');
         }
       };
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        console.log('✅ Recording complete! Total size:', blob.size, 'bytes');
-        console.log('Total chunks:', chunksRef.current.length);
-        
-        if (blob.size < 1000) {
-          setError('⚠️ Recording is too small. Your microphone might be muted or volume is too low. Check your Windows sound settings!');
-        }
-        
         const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
+        setRecordingUrl(url);
+        setHasRecording(true);
         stream.getTracks().forEach(track => track.stop());
-        if (audioContextRef.current) audioContextRef.current.close();
       };
 
-      mediaRecorder.start(100); // Capture data every 100ms
+      // Start recording
+      mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
       setError(null);
-      setAudioLevel(0);
-      
-      // Start audio level monitoring
-      updateAudioLevel();
 
+      // Start playing the track
+      if (trackAudioRef.current) {
+        trackAudioRef.current.currentTime = 0;
+        trackAudioRef.current.play();
+      }
+
+      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
@@ -145,29 +95,62 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      setAudioLevel(0);
+      
+      // Stop the track
+      if (trackAudioRef.current) {
+        trackAudioRef.current.pause();
+      }
+
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+    }
+  };
+
+  const playBoth = () => {
+    if (trackAudioRef.current && recordingAudioRef.current && recordingUrl) {
+      // Sync both to start from beginning
+      trackAudioRef.current.currentTime = 0;
+      recordingAudioRef.current.currentTime = 0;
+      
+      // Play both simultaneously
+      trackAudioRef.current.play();
+      recordingAudioRef.current.play();
+      setIsPlaying(true);
+
+      // Set up ended handler
+      const handleEnded = () => {
+        setIsPlaying(false);
+        trackAudioRef.current?.pause();
+        recordingAudioRef.current?.pause();
+      };
+
+      trackAudioRef.current.onended = handleEnded;
+      recordingAudioRef.current.onended = handleEnded;
+    }
+  };
+
+  const pauseBoth = () => {
+    if (trackAudioRef.current && recordingAudioRef.current) {
+      trackAudioRef.current.pause();
+      recordingAudioRef.current.pause();
+      setIsPlaying(false);
     }
   };
 
   const handleSave = () => {
-    if (audioUrl && chunksRef.current.length > 0) {
+    if (recordingUrl && chunksRef.current.length > 0) {
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-      onRecordingComplete(blob, recordingTime);
+      onRecordingComplete(blob, recordingTime, trackPreviewUrl);
     }
   };
 
   const handleRetry = () => {
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioUrl(null);
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+    setRecordingUrl(null);
     setRecordingTime(0);
+    setHasRecording(false);
     chunksRef.current = [];
   };
 
@@ -179,9 +162,23 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
 
   return (
     <div className="bg-gradient-to-br from-[#2a0a0a] to-[#1a0505] rounded-xl p-6 border border-red-900/30">
-      <h3 className="text-lg font-semibold text-red-100 mb-4 flex items-center gap-2">
-        🎙️ Record Audio Message
-      </h3>
+      {/* Hidden audio elements */}
+      <audio ref={trackAudioRef} src={trackPreviewUrl} />
+      {recordingUrl && <audio ref={recordingAudioRef} src={recordingUrl} />}
+
+      <div className="flex items-center gap-3 mb-4">
+        <div className="text-3xl">🎤</div>
+        <div>
+          <h3 className="text-lg font-semibold text-red-100">Sing Along Mode</h3>
+          <p className="text-xs text-red-400/70">Record yourself singing with the track</p>
+        </div>
+      </div>
+
+      {/* Track info */}
+      <div className="mb-4 p-3 bg-red-950/30 rounded-lg border border-red-900/30">
+        <div className="text-sm text-red-200 font-medium">{trackName}</div>
+        <div className="text-xs text-red-400/70">{trackArtists}</div>
+      </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-red-200 text-sm">
@@ -196,7 +193,7 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
             <div className="absolute inset-0 rounded-full bg-red-600/20 animate-ping" />
           )}
           <div className={`w-24 h-24 rounded-full flex items-center justify-center ${
-            isRecording ? 'bg-red-600 pulse-red' : 'bg-red-900/50'
+            isRecording ? 'bg-red-600 pulse-red' : hasRecording ? 'bg-green-600' : 'bg-red-900/50'
           } transition-all`}>
             {isRecording ? (
               <div className="flex gap-1.5">
@@ -212,6 +209,10 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
                   />
                 ))}
               </div>
+            ) : hasRecording ? (
+              <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+              </svg>
             ) : (
               <svg className="w-12 h-12 text-red-300" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
@@ -226,26 +227,16 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
           {formatTime(recordingTime)}
         </div>
 
-        {/* Audio Level Indicator */}
-        {isRecording && (
-          <div className="w-full max-w-xs">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-red-300">🎤 Microphone Level:</span>
-              <span className="text-xs text-red-300">{Math.round(audioLevel)}%</span>
-            </div>
-            <div className="w-full h-3 bg-red-950/50 rounded-full overflow-hidden border border-red-900/30">
-              <div 
-                className={`h-full transition-all duration-100 ${
-                  audioLevel > 5 ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-red-600'
-                }`}
-                style={{ width: `${Math.min(100, audioLevel * 1.5)}%` }}
-              />
-            </div>
+        {/* Instructions */}
+        {!hasRecording && !isRecording && (
+          <div className="text-sm text-red-300/70 text-center max-w-sm">
+            Click "Start Singing" and the track will play while recording your voice. 
+            You'll be able to hear both together after recording!
           </div>
         )}
 
         {/* Controls */}
-        {!audioUrl ? (
+        {!hasRecording ? (
           <div className="flex gap-3">
             <button
               onClick={onCancel}
@@ -257,9 +248,10 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
             {!isRecording ? (
               <button
                 onClick={startRecording}
-                className="px-8 py-2.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white font-medium hover:from-red-500 hover:to-red-600 transition-all shadow-lg hover:shadow-red-600/50"
+                className="px-8 py-2.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white font-medium hover:from-red-500 hover:to-red-600 transition-all shadow-lg hover:shadow-red-600/50 flex items-center gap-2"
               >
-                Start Recording
+                <span>🎤</span>
+                Start Singing
               </button>
             ) : (
               <button
@@ -272,8 +264,35 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
           </div>
         ) : (
           <div className="w-full space-y-4">
-            {/* Playback */}
-            <audio ref={audioRef} src={audioUrl} controls className="w-full" />
+            {/* Playback controls */}
+            <div className="text-center mb-2">
+              <p className="text-sm text-green-400 mb-3 flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+                Recording complete! Listen to your performance:
+              </p>
+              <button
+                onClick={isPlaying ? pauseBoth : playBoth}
+                className="px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg flex items-center gap-2 mx-auto"
+              >
+                {isPlaying ? (
+                  <>
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    Play Both (Music + Voice)
+                  </>
+                )}
+              </button>
+            </div>
             
             {/* Save or Retry */}
             <div className="flex gap-3">

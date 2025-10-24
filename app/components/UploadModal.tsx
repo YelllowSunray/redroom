@@ -5,23 +5,32 @@ import { AudioAttachment } from '../types';
 import AudioRecorder from './AudioRecorder';
 import Camera from './Camera';
 import SpotifySearch from './SpotifySearch';
+import SingAlongRecorder from './SingAlongRecorder';
+import { uploadImage, uploadAudio } from '../lib/firebaseStorage';
+import { savePhoto } from '../lib/firestore';
+import { useAuth } from '../context/AuthContext';
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (imageUrl: string, audio?: AudioAttachment, description?: string) => void;
+  onSuccess: () => void;
 }
 
-export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
+export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
+  const { user } = useAuth();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<'none' | 'upload' | 'camera'>('none');
   const [description, setDescription] = useState('');
-  const [audioMode, setAudioMode] = useState<'none' | 'upload' | 'record' | 'spotify'>('none');
+  const [audioMode, setAudioMode] = useState<'none' | 'upload' | 'record' | 'spotify' | 'singalong'>('none');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; duration: number } | null>(null);
   const [spotifyTrack, setSpotifyTrack] = useState<{ name: string; artists: string; previewUrl: string } | null>(null);
+  const [singAlongRecording, setSingAlongRecording] = useState<{ blob: Blob; duration: number; originalTrackUrl: string; trackName: string; trackArtists: string } | null>(null);
+  const [singAlongStep, setSingAlongStep] = useState<'select' | 'record'>('select');
+  const [selectedTrackForSingAlong, setSelectedTrackForSingAlong] = useState<{ name: string; artists: string; previewUrl: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -72,34 +81,85 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
     setRecordedAudio({ blob, duration });
     setAudioFile(null);
     setSpotifyTrack(null);
+    setSingAlongRecording(null);
     setAudioMode('none');
   };
 
+  const handleSingAlongSpotifySelect = (track: { name: string; artists: string; previewUrl: string }) => {
+    setSelectedTrackForSingAlong(track);
+    setSingAlongStep('record');
+  };
+
+  const handleSingAlongRecordingComplete = (blob: Blob, duration: number, originalTrackUrl: string) => {
+    if (selectedTrackForSingAlong) {
+      setSingAlongRecording({ 
+        blob, 
+        duration, 
+        originalTrackUrl,
+        trackName: selectedTrackForSingAlong.name,
+        trackArtists: selectedTrackForSingAlong.artists
+      });
+      setAudioFile(null);
+      setRecordedAudio(null);
+      setSpotifyTrack(null);
+      setAudioMode('none');
+      setSingAlongStep('select');
+      setSelectedTrackForSingAlong(null);
+    }
+  };
+
+  const handleCancelSingAlong = () => {
+    if (singAlongStep === 'record') {
+      setSingAlongStep('select');
+      setSelectedTrackForSingAlong(null);
+    } else {
+      setAudioMode('none');
+      setSingAlongStep('select');
+    }
+  };
+
   const handleUpload = async () => {
-    if (!imageFile) return;
+    if (!imageFile || !user) return;
 
     setIsUploading(true);
+    setUploadProgress('Uploading image...');
 
     try {
-      // Create object URLs for the files (in a real app, you'd upload to a server)
-      const imageUrl = URL.createObjectURL(imageFile);
+      // Upload image to Firebase Storage
+      const imageUrl = await uploadImage(imageFile, user.uid);
       
       let audio: AudioAttachment | undefined;
       
+      // Handle audio uploads
       if (audioFile) {
+        setUploadProgress('Uploading audio file...');
+        const audioUrl = await uploadAudio(audioFile, user.uid, audioFile.name);
         audio = {
           type: 'song',
-          url: URL.createObjectURL(audioFile),
+          url: audioUrl,
           name: audioFile.name,
         };
       } else if (recordedAudio) {
+        setUploadProgress('Uploading recording...');
+        const audioUrl = await uploadAudio(recordedAudio.blob, user.uid);
         audio = {
           type: 'recording',
-          url: URL.createObjectURL(recordedAudio.blob),
+          url: audioUrl,
           name: `Recording ${new Date().toLocaleTimeString()}`,
           duration: recordedAudio.duration,
         };
+      } else if (singAlongRecording) {
+        setUploadProgress('Uploading sing-along...');
+        const audioUrl = await uploadAudio(singAlongRecording.blob, user.uid);
+        audio = {
+          type: 'singalong',
+          url: audioUrl,
+          name: `Sing Along: ${singAlongRecording.trackName} - ${singAlongRecording.trackArtists}`,
+          duration: singAlongRecording.duration,
+          originalTrackUrl: singAlongRecording.originalTrackUrl,
+        };
       } else if (spotifyTrack) {
+        // Spotify tracks don't need uploading - they use Spotify's preview URL
         audio = {
           type: 'song',
           url: spotifyTrack.previewUrl,
@@ -107,7 +167,9 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
         };
       }
 
-      onUpload(imageUrl, audio, description || undefined);
+      // Save photo metadata to Firestore
+      setUploadProgress('Saving to database...');
+      await savePhoto(user.uid, imageUrl, audio, description || undefined);
       
       // Reset form
       setImagePreview(null);
@@ -118,9 +180,18 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       setAudioFile(null);
       setRecordedAudio(null);
       setSpotifyTrack(null);
+      setSingAlongRecording(null);
+      setSingAlongStep('select');
+      setSelectedTrackForSingAlong(null);
+      setUploadProgress('');
+      
+      // Notify parent to refresh photos
+      onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
+      setUploadProgress('');
+      alert('Failed to upload photo. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -136,6 +207,9 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       setAudioFile(null);
       setRecordedAudio(null);
       setSpotifyTrack(null);
+      setSingAlongRecording(null);
+      setSingAlongStep('select');
+      setSelectedTrackForSingAlong(null);
       onClose();
     }
   };
@@ -247,7 +321,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
               Audio Attachment (optional)
             </label>
             
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <button
                 onClick={() => setAudioMode('spotify')}
                 className={`px-3 py-2.5 rounded-lg border transition-all text-sm ${
@@ -260,17 +334,6 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
                 Spotify
               </button>
               <button
-                onClick={() => setAudioMode('upload')}
-                className={`px-3 py-2.5 rounded-lg border transition-all text-sm ${
-                  audioMode === 'upload'
-                    ? 'bg-red-600 border-red-500 text-white'
-                    : 'bg-red-950/30 border-red-900/50 text-red-300 hover:border-red-700/50'
-                }`}
-              >
-                <span className="text-base mr-1">♪</span>
-                Upload
-              </button>
-              <button
                 onClick={() => setAudioMode('record')}
                 className={`px-3 py-2.5 rounded-lg border transition-all text-sm ${
                   audioMode === 'record'
@@ -280,6 +343,31 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
               >
                 <span className="text-base mr-1">🎙️</span>
                 Record
+              </button>
+              <button
+                onClick={() => {
+                  setAudioMode('singalong');
+                  setSingAlongStep('select');
+                }}
+                className={`px-3 py-2.5 rounded-lg border transition-all text-sm ${
+                  audioMode === 'singalong'
+                    ? 'bg-red-600 border-red-500 text-white'
+                    : 'bg-red-950/30 border-red-900/50 text-red-300 hover:border-red-700/50'
+                }`}
+              >
+                <span className="text-base mr-1">🎤</span>
+                Sing Along
+              </button>
+              <button
+                onClick={() => setAudioMode('upload')}
+                className={`px-3 py-2.5 rounded-lg border transition-all text-sm ${
+                  audioMode === 'upload'
+                    ? 'bg-red-600 border-red-500 text-white'
+                    : 'bg-red-950/30 border-red-900/50 text-red-300 hover:border-red-700/50'
+                }`}
+              >
+                <span className="text-base mr-1">♪</span>
+                Upload
               </button>
             </div>
 
@@ -322,19 +410,52 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
               />
             )}
 
-            {/* Show attached audio/recording/spotify */}
-            {(audioFile || recordedAudio || spotifyTrack) && audioMode === 'none' && (
+            {/* Sing Along Mode */}
+            {audioMode === 'singalong' && (
+              <>
+                {singAlongStep === 'select' && (
+                  <div>
+                    <div className="mb-3 p-3 bg-purple-950/30 border border-purple-900/50 rounded-lg text-purple-200 text-sm">
+                      🎤 Step 1: Choose a song to sing along with
+                    </div>
+                    <SpotifySearch
+                      onSelect={handleSingAlongSpotifySelect}
+                      onCancel={handleCancelSingAlong}
+                    />
+                  </div>
+                )}
+                {singAlongStep === 'record' && selectedTrackForSingAlong && (
+                  <div>
+                    <div className="mb-3 p-3 bg-purple-950/30 border border-purple-900/50 rounded-lg text-purple-200 text-sm">
+                      🎤 Step 2: Now record yourself singing!
+                    </div>
+                    <SingAlongRecorder
+                      trackName={selectedTrackForSingAlong.name}
+                      trackArtists={selectedTrackForSingAlong.artists}
+                      trackPreviewUrl={selectedTrackForSingAlong.previewUrl}
+                      onRecordingComplete={handleSingAlongRecordingComplete}
+                      onCancel={handleCancelSingAlong}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Show attached audio/recording/spotify/singalong */}
+            {(audioFile || recordedAudio || spotifyTrack || singAlongRecording) && audioMode === 'none' && (
               <div className="p-4 bg-red-950/30 border border-red-900/50 rounded-lg flex items-center justify-between">
                 <span className="text-red-200">
                   {audioFile && `♪ ${audioFile.name}`}
                   {recordedAudio && '🎙️ Voice Recording'}
                   {spotifyTrack && `🎵 ${spotifyTrack.name} - ${spotifyTrack.artists}`}
+                  {singAlongRecording && `🎤 Sing Along: ${singAlongRecording.trackName}`}
                 </span>
                 <button
                   onClick={() => {
                     setAudioFile(null);
                     setRecordedAudio(null);
                     setSpotifyTrack(null);
+                    setSingAlongRecording(null);
                   }}
                   className="text-red-400 hover:text-red-200 transition-colors"
                 >
@@ -358,7 +479,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
               disabled={!imageFile || isUploading}
               className="flex-1 px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white font-medium hover:from-red-500 hover:to-red-600 transition-all shadow-lg hover:shadow-red-600/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isUploading ? 'Developing...' : 'Develop Photo'}
+              {uploadProgress || (isUploading ? 'Developing...' : 'Develop Photo')}
             </button>
           </div>
         </div>

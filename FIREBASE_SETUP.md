@@ -201,10 +201,6 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
-
-# Your existing Spotify config (keep this)
-NEXT_PUBLIC_SPOTIFY_CLIENT_ID=0cc44a9d25d741b6bb58694ef6e96eda
-SPOTIFY_CLIENT_SECRET=fb4cc704f8564201843fce1128789641
 ```
 
 3. **Replace** the placeholder values with YOUR actual Firebase values from Step 6

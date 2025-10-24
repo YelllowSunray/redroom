@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { AudioAttachment } from '../types';
 import AudioRecorder from './AudioRecorder';
 import Camera from './Camera';
-import SpotifySearch from './SpotifySearch';
+import AppleMusicSearch from './AppleMusicSearch';
 import SingAlongRecorder from './SingAlongRecorder';
 import { uploadImage, uploadAudio } from '../lib/firebaseStorage';
 import { savePhoto } from '../lib/firestore';
@@ -22,10 +22,10 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<'none' | 'upload' | 'camera'>('none');
   const [description, setDescription] = useState('');
-  const [audioMode, setAudioMode] = useState<'none' | 'upload' | 'record' | 'spotify' | 'singalong'>('none');
+  const [audioMode, setAudioMode] = useState<'none' | 'upload' | 'record' | 'music' | 'singalong'>('none');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; duration: number } | null>(null);
-  const [spotifyTrack, setSpotifyTrack] = useState<{ name: string; artists: string; previewUrl: string } | null>(null);
+  const [musicTrack, setMusicTrack] = useState<{ name: string; artists: string; previewUrl: string } | null>(null);
   const [singAlongRecording, setSingAlongRecording] = useState<{ blob: Blob; duration: number; originalTrackUrl: string; trackName: string; trackArtists: string } | null>(null);
   const [singAlongStep, setSingAlongStep] = useState<'select' | 'record'>('select');
   const [selectedTrackForSingAlong, setSelectedTrackForSingAlong] = useState<{ name: string; artists: string; previewUrl: string } | null>(null);
@@ -62,8 +62,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
     setImageMode('none');
   };
 
-  const handleSpotifySelect = (track: { name: string; artists: string; previewUrl: string }) => {
-    setSpotifyTrack(track);
+  const handleMusicSelect = (track: { name: string; artists: string; previewUrl: string }) => {
+    setMusicTrack(track);
     setAudioFile(null);
     setRecordedAudio(null);
     setAudioMode('none');
@@ -80,12 +80,12 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
   const handleRecordingComplete = (blob: Blob, duration: number) => {
     setRecordedAudio({ blob, duration });
     setAudioFile(null);
-    setSpotifyTrack(null);
+    setMusicTrack(null);
     setSingAlongRecording(null);
     setAudioMode('none');
   };
 
-  const handleSingAlongSpotifySelect = (track: { name: string; artists: string; previewUrl: string }) => {
+  const handleSingAlongMusicSelect = (track: { name: string; artists: string; previewUrl: string }) => {
     setSelectedTrackForSingAlong(track);
     setSingAlongStep('record');
   };
@@ -101,7 +101,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
       });
       setAudioFile(null);
       setRecordedAudio(null);
-      setSpotifyTrack(null);
+      setMusicTrack(null);
       setAudioMode('none');
       setSingAlongStep('select');
       setSelectedTrackForSingAlong(null);
@@ -158,12 +158,12 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
           duration: singAlongRecording.duration,
           originalTrackUrl: singAlongRecording.originalTrackUrl,
         };
-      } else if (spotifyTrack) {
-        // Spotify tracks don't need uploading - they use Spotify's preview URL
+      } else if (musicTrack) {
+        // Apple Music tracks don't need uploading - they use iTunes preview URL
         audio = {
           type: 'song',
-          url: spotifyTrack.previewUrl,
-          name: `${spotifyTrack.name} - ${spotifyTrack.artists}`,
+          url: musicTrack.previewUrl,
+          name: `${musicTrack.name} - ${musicTrack.artists}`,
         };
       }
 
@@ -179,7 +179,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
       setAudioMode('none');
       setAudioFile(null);
       setRecordedAudio(null);
-      setSpotifyTrack(null);
+      setMusicTrack(null);
       setSingAlongRecording(null);
       setSingAlongStep('select');
       setSelectedTrackForSingAlong(null);
@@ -206,7 +206,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
       setAudioMode('none');
       setAudioFile(null);
       setRecordedAudio(null);
-      setSpotifyTrack(null);
+      setMusicTrack(null);
       setSingAlongRecording(null);
       setSingAlongStep('select');
       setSelectedTrackForSingAlong(null);
@@ -323,15 +323,15 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
             
             <div className="grid grid-cols-2 gap-2 mb-4">
               <button
-                onClick={() => setAudioMode('spotify')}
+                onClick={() => setAudioMode('music')}
                 className={`px-3 py-2.5 rounded-lg border transition-all text-sm ${
-                  audioMode === 'spotify'
+                  audioMode === 'music'
                     ? 'bg-red-600 border-red-500 text-white'
                     : 'bg-red-950/30 border-red-900/50 text-red-300 hover:border-red-700/50'
                 }`}
               >
                 <span className="text-base mr-1">🎵</span>
-                Spotify
+                Apple Music
               </button>
               <button
                 onClick={() => setAudioMode('record')}
@@ -402,10 +402,10 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
               />
             )}
 
-            {/* Spotify Search */}
-            {audioMode === 'spotify' && (
-              <SpotifySearch
-                onSelect={handleSpotifySelect}
+            {/* Apple Music Search */}
+            {audioMode === 'music' && (
+              <AppleMusicSearch
+                onSelect={handleMusicSelect}
                 onCancel={() => setAudioMode('none')}
               />
             )}
@@ -418,8 +418,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
                     <div className="mb-3 p-3 bg-purple-950/30 border border-purple-900/50 rounded-lg text-purple-200 text-sm">
                       🎤 Step 1: Choose a song to sing along with
                     </div>
-                    <SpotifySearch
-                      onSelect={handleSingAlongSpotifySelect}
+                    <AppleMusicSearch
+                      onSelect={handleSingAlongMusicSelect}
                       onCancel={handleCancelSingAlong}
                     />
                   </div>
@@ -441,20 +441,20 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
               </>
             )}
 
-            {/* Show attached audio/recording/spotify/singalong */}
-            {(audioFile || recordedAudio || spotifyTrack || singAlongRecording) && audioMode === 'none' && (
+            {/* Show attached audio/recording/music/singalong */}
+            {(audioFile || recordedAudio || musicTrack || singAlongRecording) && audioMode === 'none' && (
               <div className="p-4 bg-red-950/30 border border-red-900/50 rounded-lg flex items-center justify-between">
                 <span className="text-red-200">
                   {audioFile && `♪ ${audioFile.name}`}
                   {recordedAudio && '🎙️ Voice Recording'}
-                  {spotifyTrack && `🎵 ${spotifyTrack.name} - ${spotifyTrack.artists}`}
+                  {musicTrack && `🎵 ${musicTrack.name} - ${musicTrack.artists}`}
                   {singAlongRecording && `🎤 Sing Along: ${singAlongRecording.trackName}`}
                 </span>
                 <button
                   onClick={() => {
                     setAudioFile(null);
                     setRecordedAudio(null);
-                    setSpotifyTrack(null);
+                    setMusicTrack(null);
                     setSingAlongRecording(null);
                   }}
                   className="text-red-400 hover:text-red-200 transition-colors"

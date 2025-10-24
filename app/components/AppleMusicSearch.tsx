@@ -2,27 +2,27 @@
 
 import { useState, useEffect } from 'react';
 
-interface SpotifyTrack {
+interface AppleMusicTrack {
   id: string;
   name: string;
   artists: string;
   album: string;
   albumArt: string;
-  previewUrl: string | null;
+  previewUrl: string;
   duration: number;
 }
 
-interface SpotifySearchProps {
+interface AppleMusicSearchProps {
   onSelect: (track: { name: string; artists: string; previewUrl: string }) => void;
   onCancel: () => void;
 }
 
-export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps) {
+export default function AppleMusicSearch({ onSelect, onCancel }: AppleMusicSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
+  const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<AppleMusicTrack | null>(null);
 
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -42,7 +42,7 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
     setError(null);
 
     try {
-      const response = await fetch(`/api/spotify/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(`/api/apple-music/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -59,7 +59,7 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
     }
   };
 
-  const handleSelectTrack = (track: SpotifyTrack) => {
+  const handleSelectTrack = (track: AppleMusicTrack) => {
     if (!track.previewUrl) {
       setError('This track does not have a preview available. Please select a different track.');
       return;
@@ -90,7 +90,7 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
       <div className="flex items-center gap-3 mb-4">
         <div className="text-3xl">🎵</div>
         <div>
-          <h3 className="text-lg font-semibold text-red-100">Spotify Search</h3>
+          <h3 className="text-lg font-semibold text-red-100">Apple Music Search</h3>
           <p className="text-xs text-red-400/70">Search for a song to attach to your photo</p>
         </div>
       </div>
@@ -98,16 +98,6 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
       {error && (
         <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-red-200 text-sm">
           {error}
-          {error.includes('not configured') && (
-            <div className="mt-2 text-xs">
-              <p>To set up Spotify integration:</p>
-              <ol className="list-decimal ml-4 mt-1 space-y-1">
-                <li>Go to <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline">Spotify Developer Dashboard</a></li>
-                <li>Create an app and get your credentials</li>
-                <li>Add them to your .env.local file</li>
-              </ol>
-            </div>
-          )}
         </div>
       )}
 
@@ -137,12 +127,6 @@ export default function SpotifySearch({ onSelect, onCancel }: SpotifySearchProps
             <div className="text-sm opacity-70">
               Try a different search term
             </div>
-          </div>
-        )}
-
-        {!isSearching && tracks.length > 0 && !tracks.some(t => t.previewUrl) && (
-          <div className="mb-3 p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg text-yellow-200/90 text-sm">
-            ⚠️ None of these tracks have previews available. Try searching for a more popular song.
           </div>
         )}
 

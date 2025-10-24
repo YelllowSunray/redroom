@@ -5,7 +5,7 @@ export interface AudioAttachment {
   url: string;
   name: string;
   duration?: number;
-  // For singalong: the original Spotify track URL
+  // For singalong: the original music track URL
   originalTrackUrl?: string;
 }
 

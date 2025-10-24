@@ -186,26 +186,6 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* Stats */}
-            <div className="mb-8 flex gap-6 text-sm">
-              <div className="flex items-center gap-2 text-red-300/70">
-                <span className="text-lg">📷</span>
-                <span>{photos.length} {photos.length === 1 ? 'photo' : 'photos'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-red-300/70">
-                <span className="text-lg">♪</span>
-                <span>{photos.filter(p => p.audio?.type === 'song').length} songs</span>
-              </div>
-              <div className="flex items-center gap-2 text-red-300/70">
-                <span className="text-lg">🎙️</span>
-                <span>{photos.filter(p => p.audio?.type === 'recording').length} recordings</span>
-              </div>
-              <div className="flex items-center gap-2 text-red-300/70">
-                <span className="text-lg">🎤</span>
-                <span>{photos.filter(p => p.audio?.type === 'singalong').length} sing-alongs</span>
-              </div>
-            </div>
-
             {/* Gallery Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {photos.map(photo => (

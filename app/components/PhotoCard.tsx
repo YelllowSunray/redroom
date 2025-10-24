@@ -95,8 +95,8 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
       // Delete image from Storage
       await deleteFile(photo.imageUrl);
       
-      // Delete audio from Storage if it exists and isn't a Spotify link
-      if (photo.audio && photo.audio.type !== 'song' && !photo.audio.url.includes('spotify')) {
+      // Delete audio from Storage if it exists and isn't an external preview link
+      if (photo.audio && photo.audio.type !== 'song' && !photo.audio.url.includes('apple.com') && !photo.audio.url.includes('itunes.apple.com')) {
         await deleteFile(photo.audio.url);
       }
       

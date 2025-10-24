@@ -20,7 +20,7 @@ I've completely upgraded your Nude Dark Room app! Here's everything that changed
 ### 3. **Real Cloud Storage** ☁️
 - Images uploaded to Firebase Storage
 - Audio files uploaded to cloud
-- Spotify tracks still use Spotify's URLs (no upload needed)
+- Apple Music tracks use iTunes preview URLs (no upload needed)
 - Fast, reliable, and scalable
 
 ---
@@ -88,7 +88,7 @@ npm run dev
 2. **Upload Photos**:
    - Click "New Photo"
    - Upload or take a photo
-   - Add audio (Spotify, upload, or record)
+   - Add audio (Apple Music, upload, or record)
    - Click "Develop Photo"
    - Photos upload to cloud (you'll see progress!)
 
@@ -217,7 +217,7 @@ You now have a **full-stack application** with:
 - **Authentication**: Firebase Auth
 - **Database**: Firestore (NoSQL)
 - **File Storage**: Firebase Storage
-- **APIs**: Spotify API integration
+- **APIs**: Apple Music (iTunes) API integration
 - **Media**: Camera + Audio recording
 
 This is production-ready architecture that scales to millions of users!

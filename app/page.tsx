@@ -80,7 +80,7 @@ export default function Home() {
                 <span className="text-xl">📷</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-red-100">Nude Dark Room</h1>
+                <h1 className="text-2xl font-bold text-red-100">Dark Room</h1>
                 <p className="text-sm text-red-400/70">
                   {user ? `Welcome, ${user.displayName || user.email}` : 'Develop your memories'}
                 </p>

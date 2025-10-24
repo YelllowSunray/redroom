@@ -1,65 +1,129 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import PhotoCard from './components/PhotoCard';
+import UploadModal from './components/UploadModal';
+import { Photo, AudioAttachment } from './types';
 
 export default function Home() {
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  const handleUpload = (imageUrl: string, audio?: AudioAttachment, description?: string) => {
+    const newPhoto: Photo = {
+      id: Date.now().toString(),
+      imageUrl,
+      audio,
+      description,
+      uploadedAt: new Date(),
+    };
+    setPhotos([newPhoto, ...photos]);
+  };
+
+  const handleDelete = (id: string) => {
+    setPhotos(photos.filter(photo => photo.id !== id));
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-[#1a0a0a]">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-gradient-to-b from-[#1a0a0a] via-[#1a0a0a] to-transparent backdrop-blur-sm border-b border-red-900/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center dark-room-glow">
+                <span className="text-xl">📷</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-red-100">Dark Room</h1>
+                <p className="text-sm text-red-400/70">Develop your memories</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white font-medium hover:from-red-500 hover:to-red-600 transition-all shadow-lg hover:shadow-red-600/50 flex items-center gap-2"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Photo
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {photos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-red-900/20 to-red-950/20 flex items-center justify-center mb-6 dark-room-glow">
+              <svg className="w-16 h-16 text-red-700/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-semibold text-red-200 mb-3">
+              Your Dark Room is Empty
+            </h2>
+            <p className="text-red-400/70 mb-8 max-w-md">
+              Start developing your memories by uploading photos with audio attachments. 
+              Add songs or record personal messages to bring your photos to life.
+            </p>
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="px-8 py-4 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white font-medium hover:from-red-500 hover:to-red-600 transition-all shadow-lg hover:shadow-red-600/50 flex items-center gap-2"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Upload Your First Photo
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="mb-8 flex gap-6 text-sm">
+              <div className="flex items-center gap-2 text-red-300/70">
+                <span className="text-lg">📷</span>
+                <span>{photos.length} {photos.length === 1 ? 'photo' : 'photos'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-red-300/70">
+                <span className="text-lg">♪</span>
+                <span>{photos.filter(p => p.audio?.type === 'song').length} songs</span>
+              </div>
+              <div className="flex items-center gap-2 text-red-300/70">
+                <span className="text-lg">🎙️</span>
+                <span>{photos.filter(p => p.audio?.type === 'recording').length} recordings</span>
+              </div>
+            </div>
+
+            {/* Gallery Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {photos.map(photo => (
+                <PhotoCard 
+                  key={photo.id} 
+                  photo={photo}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </main>
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUpload={handleUpload}
+      />
+
+      {/* Footer */}
+      <footer className="mt-20 border-t border-red-900/20 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-red-400/50 text-sm">
+          <p>Developed with ❤️ in the dark room</p>
+        </div>
+      </footer>
     </div>
   );
 }
